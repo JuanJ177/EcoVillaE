@@ -5,7 +5,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Buscar Usuario · EcoVilla</title>
+
+  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Si tienes estilos propios -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 
 <body class="bg-emerald-50 min-h-screen">
@@ -13,7 +18,7 @@
   <header class="bg-emerald-700 text-white p-4 shadow-lg">
     <div class="max-w-4xl mx-auto flex justify-between items-center">
       <h1 class="text-2xl font-semibold">EcoVilla · Buscar Usuario</h1>
-      <a href="index.html" class="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30">
+      <a href="{{ url_for('home') }}" class="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30">
         ← Volver al panel
       </a>
     </div>
@@ -73,8 +78,7 @@
   </main>
 
   <script>
-    const API = "http://127.0.0.1:5000";
-
+    // Usamos rutas relativas: funciona en local y en Vercel
     const inputBuscar = document.getElementById("inputBuscar");
     const resultados = document.getElementById("resultados");
     const panelInfo = document.getElementById("panelInfo");
@@ -96,7 +100,7 @@
       resultados.classList.remove("hidden");
 
       try {
-        const res = await fetch(`${API}/buscar_usuario?q=${encodeURIComponent(q)}`);
+        const res = await fetch(`/buscar_usuario?q=${encodeURIComponent(q)}`);
         const data = await res.json();
 
         resultados.innerHTML = "";
@@ -118,13 +122,14 @@
         });
 
       } catch (err) {
+        console.error(err);
         resultados.innerHTML = "<div class='p-3 text-red-500'>Error al buscar</div>";
       }
     }
 
     async function cargarInfo(id) {
       try {
-        const res = await fetch(`${API}/usuario/${id}`);
+        const res = await fetch(`/usuario/${id}`);
         const u = await res.json();
 
         if (u.error) {
@@ -132,7 +137,6 @@
           return;
         }
 
-        // Insertar datos al panel
         document.getElementById("infoNombre").innerText = u.nombre;
         document.getElementById("infoEmail").innerText = u.email;
         document.getElementById("infoTelefono").innerText = u.telefono || "—";
@@ -145,6 +149,7 @@
         resultados.classList.add("hidden");
 
       } catch (err) {
+        console.error(err);
         alert("Error al cargar información del usuario");
       }
     }

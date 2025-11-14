@@ -4,8 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>EcoVilla · Dashboard</title>
+
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Tus estilos propios (opcional) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body class="bg-emerald-50 text-emerald-900 min-h-screen">
 
@@ -72,8 +79,14 @@
         <canvas id="materialChart"></canvas>
       </div>
       <div class="grid grid-cols-2 gap-3 mt-4">
-        <div class="p-3 rounded-lg bg-white/90 text-center"><div class="text-xs text-gray-500">Registros</div><div id="countRec" class="text-xl font-bold">0</div></div>
-        <div class="p-3 rounded-lg bg-white/90 text-center"><div class="text-xs text-gray-500">Usuarios</div><div id="countUsers" class="text-xl font-bold">0</div></div>
+        <div class="p-3 rounded-lg bg-white/90 text-center">
+          <div class="text-xs text-gray-500">Registros</div>
+          <div id="countRec" class="text-xl font-bold">0</div>
+        </div>
+        <div class="p-3 rounded-lg bg-white/90 text-center">
+          <div class="text-xs text-gray-500">Usuarios</div>
+          <div id="countUsers" class="text-xl font-bold">0</div>
+        </div>
       </div>
     </section>
 
@@ -90,21 +103,23 @@
   <footer class="text-center text-gray-600 py-6">© EcoVilla Villavicencio</footer>
 
 <script>
-const API = "http://127.0.0.1:5000";
+/* Usamos rutas relativas para que funcione tanto en local como en Vercel */
+// const API = ""; // si quieres mantener una constante, pero no es necesario
 
 // session check
 const currentUserId = localStorage.getItem('userId');
 const currentUserName = localStorage.getItem('userName');
 if (!currentUserId) {
-  window.location.href = 'login.html';
+  window.location.href = "{{ url_for('login_page') }}";
 } else {
-  document.getElementById('userGreeting').innerText = currentUserName;
+  document.getElementById('userGreeting').innerText = currentUserName || 'invitado';
 }
 
 // logout
 document.getElementById('logoutBtn').addEventListener('click', ()=>{
-  localStorage.removeItem('userId'); localStorage.removeItem('userName');
-  window.location.href = 'login.html';
+  localStorage.removeItem('userId'); 
+  localStorage.removeItem('userName');
+  window.location.href = "{{ url_for('login_page') }}";
 });
 
 // material selection
@@ -121,20 +136,28 @@ document.querySelectorAll('.mat-btn').forEach(b=>{
 const inputBuscar = document.getElementById('buscarUsuario');
 const resultadosEl = document.getElementById('resultadoUsuarios');
 let debounce = null;
+
 inputBuscar.addEventListener('input', ()=>{
   clearTimeout(debounce);
   const q = inputBuscar.value.trim();
-  if (!q) { resultadosEl.classList.add('hidden'); return; }
+  if (!q) { 
+    resultadosEl.classList.add('hidden'); 
+    return; 
+  }
   debounce = setTimeout(()=> buscarUsuario(q), 300);
 });
+
 async function buscarUsuario(q) {
   resultadosEl.innerHTML = '<div class="p-3 text-gray-500">Buscando…</div>';
   resultadosEl.classList.remove('hidden');
   try {
-    const res = await fetch(`${API}/buscar_usuario?q=${encodeURIComponent(q)}`);
+    const res = await fetch(`/buscar_usuario?q=${encodeURIComponent(q)}`);
     const data = await res.json();
     resultadosEl.innerHTML = '';
-    if (!data.length) resultadosEl.innerHTML = '<div class="p-3 text-gray-500">Sin resultados</div>';
+    if (!data.length) {
+      resultadosEl.innerHTML = '<div class="p-3 text-gray-500">Sin resultados</div>';
+      return;
+    }
     data.forEach(u=>{
       const d = document.createElement('div');
       d.className = 'p-3 border-b cursor-pointer';
@@ -149,7 +172,10 @@ async function buscarUsuario(q) {
       };
       resultadosEl.appendChild(d);
     });
-  } catch(e){ resultadosEl.innerHTML = '<div class="p-3 text-red-500">Error</div>'; }
+  } catch(e){ 
+    console.error(e);
+    resultadosEl.innerHTML = '<div class="p-3 text-red-500">Error</div>'; 
+  }
 }
 
 // registro reciclaje
@@ -157,35 +183,49 @@ document.getElementById('registrarBtn').addEventListener('click', async ()=>{
   const usuarioid = Number(document.getElementById('usuarioSelect').value || currentUserId);
   const material = selectedMaterial;
   const cantidad = Number(document.getElementById('cantidad').value);
-  if (!usuarioid) { document.getElementById('formMsg').innerText = 'Selecciona usuario'; return; }
-  if (!material || !cantidad) { document.getElementById('formMsg').innerText = 'Material y cantidad requeridos'; return; }
+  if (!usuarioid) { 
+    document.getElementById('formMsg').innerText = 'Selecciona usuario'; 
+    return; 
+  }
+  if (!material || !cantidad) { 
+    document.getElementById('formMsg').innerText = 'Material y cantidad requeridos'; 
+    return; 
+  }
   document.getElementById('formMsg').innerText = '';
   try {
-    const r = await fetch(`${API}/reciclaje`, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+    const r = await fetch(`/reciclaje`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ usuarioid, material, cantidad })
     });
     const data = await r.json();
-    if (!r.ok) { document.getElementById('formMsg').innerText = data.error || 'Error'; return; }
-    // success
+    if (!r.ok) { 
+      document.getElementById('formMsg').innerText = data.error || 'Error'; 
+      return; 
+    }
     alert('Registrado! Puntos: ' + (data.points || '0'));
-    // refresh dashboard
+    // reset
     selectedMaterial = null;
     document.querySelectorAll('.mat-btn').forEach(x=> x.classList.remove('bg-emerald-600','text-white'));
     document.getElementById('cantidad').value = '';
     inputBuscar.value = '';
     document.getElementById('usuarioSelect').value = '';
     document.getElementById('usuarioSeleccionado').classList.add('hidden');
-    await Promise.all([loadRanking(), loadReciclaje(), loadUsuarioPoints()]);
-  } catch(e){ document.getElementById('formMsg').innerText = 'Error de conexión'; }
+    await Promise.all([loadRanking(), loadReciclaje(), loadUsuarioPoints(), loadUsuariosCount()]);
+  } catch(e){ 
+    console.error(e);
+    document.getElementById('formMsg').innerText = 'Error de conexión'; 
+  }
 });
 
 // cargar datos
 let chart = null;
+
 async function loadRanking() {
-  const r = await fetch(`${API}/ranking`);
+  const r = await fetch(`/ranking`);
   const data = await r.json();
-  const ol = document.getElementById('listaRanking'); ol.innerHTML = '';
+  const ol = document.getElementById('listaRanking'); 
+  ol.innerHTML = '';
   data.slice(0,10).forEach(u=>{
     const li = document.createElement('li');
     li.className = 'p-3 bg-white rounded-lg shadow-sm flex justify-between';
@@ -196,9 +236,10 @@ async function loadRanking() {
 }
 
 async function loadReciclaje(){
-  const r = await fetch(`${API}/reciclaje`);
+  const r = await fetch(`/reciclaje`);
   const rec = await r.json();
-  const ul = document.getElementById('listaRecientes'); ul.innerHTML = '';
+  const ul = document.getElementById('listaRecientes'); 
+  ul.innerHTML = '';
   const agg = {};
   rec.slice(0,50).forEach(rg=>{
     const li = document.createElement('li');
@@ -212,23 +253,42 @@ async function loadReciclaje(){
   const labels = Object.keys(agg);
   const values = labels.map(k=>agg[k]);
   const ctx = document.getElementById('materialChart').getContext('2d');
-  if (chart) { chart.data.labels = labels; chart.data.datasets[0].data = values; chart.update(); }
-  else {
-    chart = new Chart(ctx, { type:'doughnut', data:{ labels, datasets:[{data: values, backgroundColor:['#34D399','#059669','#10B981','#86EFAC','#FDE68A']}]} , options:{plugins:{legend:{position:'bottom'}}, maintainAspectRatio:false }});
+  if (chart) { 
+    chart.data.labels = labels; 
+    chart.data.datasets[0].data = values; 
+    chart.update(); 
+  } else {
+    chart = new Chart(ctx, { 
+      type:'doughnut', 
+      data:{ 
+        labels, 
+        datasets:[{ 
+          data: values, 
+          backgroundColor:['#34D399','#059669','#10B981','#86EFAC','#FDE68A'] 
+        }] 
+      },
+      options:{ 
+        plugins:{ legend:{ position:'bottom' }}, 
+        maintainAspectRatio:false 
+      }
+    });
   }
 }
 
-async function loadUsuariosCount(){ const r = await fetch(`${API}/usuarios`); const a = await r.json(); document.getElementById('countUsers').innerText = a.length; }
+async function loadUsuariosCount(){
+  const r = await fetch(`/usuarios`);
+  const a = await r.json();
+  document.getElementById('countUsers').innerText = a.length;
+}
 
 async function loadUsuarioPoints(){
   const uid = Number(localStorage.getItem('userId'));
-  const r = await fetch(`${API}/usuario/${uid}`);
+  if (!uid) return;
+  const r = await fetch(`/usuario/${uid}`);
   if (!r.ok) return;
   const data = await r.json();
   document.getElementById('userGreeting').innerText = data.nombre;
-  document.getElementById('userPointsTop').innerText = '';
   document.getElementById('totalPoints').innerText = data.total_points;
-  // if you want show more user details you can
 }
 
 async function init(){
@@ -237,7 +297,12 @@ async function init(){
 init();
 
 document.getElementById('limpiarBtn').addEventListener('click', ()=>{
-  selectedMaterial = null; document.querySelectorAll('.mat-btn').forEach(x=> x.classList.remove('bg-emerald-600','text-white')); document.getElementById('cantidad').value=''; document.getElementById('usuarioSelect').value=''; document.getElementById('usuarioSeleccionado').classList.add('hidden'); inputBuscar.value='';
+  selectedMaterial = null; 
+  document.querySelectorAll('.mat-btn').forEach(x=> x.classList.remove('bg-emerald-600','text-white')); 
+  document.getElementById('cantidad').value=''; 
+  document.getElementById('usuarioSelect').value=''; 
+  document.getElementById('usuarioSeleccionado').classList.add('hidden'); 
+  inputBuscar.value='';
 });
 </script>
 </body>
