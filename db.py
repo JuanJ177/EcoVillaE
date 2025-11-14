@@ -1,4 +1,4 @@
-# db.py - conexión PostgreSQL para Vercel y local
+# db.py - conexión PostgreSQL para Vercel y local con Neon
 import psycopg2
 import os
 
@@ -6,15 +6,16 @@ import os
 def get_connection():
     """
     Crea una nueva conexión a PostgreSQL usando variables de entorno.
-    En Vercel configura:
+
+    En Vercel (Environment Variables) debes configurar:
       PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD, PGSSLMODE=require
     """
     conn = psycopg2.connect(
-        host=os.getenv("PGHOST"),
-        port=os.getenv("PGPORT", 5432),
-        database=os.getenv("PGDATABASE"),
-        user=os.getenv("PGUSER"),
-        password=os.getenv("PGPASSWORD"),
-        sslmode=os.getenv("PGSSLMODE", "require"),
+        host=os.environ["PGHOST"],
+        port=os.environ.get("PGPORT", 5432),
+        database=os.environ["PGDATABASE"],
+        user=os.environ["PGUSER"],
+        password=os.environ["PGPASSWORD"],
+        sslmode=os.environ.get("PGSSLMODE", "require"),
     )
     return conn
