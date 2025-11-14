@@ -167,5 +167,8 @@ def get_ranking():
     return jsonify(data)
 
 if __name__ == "__main__":
-    # Para correr local
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    from waitress import serve
+    serve(app, host="0.0.0.0", port=5000)
+
+app = app  # Vercel necesita que la app se llame "app"
+
