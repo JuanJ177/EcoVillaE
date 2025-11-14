@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>EcoVilla · Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-emerald-50 text-emerald-900 min-h-screen">
+
+  <header class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white p-6 shadow">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-semibold">EcoVilla · Villavicencio</h1>
+        <p class="text-sm opacity-90">Hola, <span id="userGreeting">invitado</span></p>
+      </div>
+      <div class="flex items-center gap-4">
+        <div id="userPointsTop" class="text-right">
+          <div class="text-xs">Puntos</div>
+          <div id="totalPoints" class="text-xl font-bold">0</div>
+        </div>
+        <button id="logoutBtn" class="bg-white/20 px-3 py-2 rounded-lg">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto p-6 grid lg:grid-cols-3 gap-6">
+    <!-- Left: form -->
+    <section class="glass card-shadow rounded-2xl p-6">
+      <h2 class="text-lg font-semibold mb-4">Registrar reciclaje</h2>
+
+      <label class="block text-sm font-medium mb-1">Buscar usuario (ID, nombre, documento)</label>
+      <input id="buscarUsuario" placeholder="Busca por nombre o doc..." class="w-full p-3 rounded-xl border border-emerald-200">
+      <div id="resultadoUsuarios" class="hidden mt-2 rounded-xl border border-emerald-100 bg-white max-h-56 overflow-auto"></div>
+
+      <div id="usuarioSeleccionado" class="hidden mt-3 p-3 rounded-lg bg-emerald-50 border">
+        <p id="usuarioNombre" class="font-medium"></p>
+        <p id="usuarioDocumento" class="text-sm text-gray-600"></p>
+      </div>
+      <input id="usuarioSelect" type="hidden">
+
+      <!-- Material selector (botones) -->
+      <div class="mt-4">
+        <label class="block text-sm mb-2">Material</label>
+        <div id="materialButtons" class="flex flex-wrap gap-2">
+          <button data-mat="Plástico" class="mat-btn px-3 py-2 rounded-full border">Plástico</button>
+          <button data-mat="Vidrio" class="mat-btn px-3 py-2 rounded-full border">Vidrio</button>
+          <button data-mat="Papel" class="mat-btn px-3 py-2 rounded-full border">Papel</button>
+          <button data-mat="Metal" class="mat-btn px-3 py-2 rounded-full border">Metal</button>
+          <button data-mat="Orgánico" class="mat-btn px-3 py-2 rounded-full border">Orgánico</button>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <label class="block text-sm">Cantidad (kg)</label>
+        <input id="cantidad" type="number" step="0.01" class="w-full p-3 rounded-lg border border-emerald-200">
+      </div>
+
+      <div class="flex gap-3 mt-4">
+        <button id="registrarBtn" class="flex-1 bg-emerald-600 text-white p-3 rounded-lg">Registrar</button>
+        <button id="limpiarBtn" class="px-4 py-3 border rounded-lg">Limpiar</button>
+      </div>
+
+      <p id="formMsg" class="text-sm text-red-600 mt-2"></p>
+    </section>
+
+    <!-- middle: chart -->
+    <section class="glass card-shadow rounded-2xl p-6">
+      <h2 class="text-lg font-semibold">Resumen por material</h2>
+      <div style="height:260px" class="mt-4">
+        <canvas id="materialChart"></canvas>
+      </div>
+      <div class="grid grid-cols-2 gap-3 mt-4">
+        <div class="p-3 rounded-lg bg-white/90 text-center"><div class="text-xs text-gray-500">Registros</div><div id="countRec" class="text-xl font-bold">0</div></div>
+        <div class="p-3 rounded-lg bg-white/90 text-center"><div class="text-xs text-gray-500">Usuarios</div><div id="countUsers" class="text-xl font-bold">0</div></div>
+      </div>
+    </section>
+
+    <!-- right: ranking + recientes -->
+    <section class="glass card-shadow rounded-2xl p-6 flex flex-col">
+      <h2 class="text-lg font-semibold">Top recicladores</h2>
+      <ol id="listaRanking" class="mt-3 space-y-2"></ol>
+      <hr class="my-4">
+      <p class="text-sm text-gray-600">Últimos registros</p>
+      <ul id="listaRecientes" class="mt-3 space-y-2 overflow-auto"></ul>
+    </section>
+  </main>
+
+  <footer class="text-center text-gray-600 py-6">© EcoVilla Villavicencio</footer>
+
+<script>
+const API = "http://127.0.0.1:5000";
+
+// session check
+const currentUserId = localStorage.getItem('userId');
+const currentUserName = localStorage.getItem('userName');
+if (!currentUserId) {
+  window.location.href = 'login.html';
+} else {
+  document.getElementById('userGreeting').innerText = currentUserName;
+}
+
+// logout
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  localStorage.removeItem('userId'); localStorage.removeItem('userName');
+  window.location.href = 'login.html';
+});
+
+// material selection
+let selectedMaterial = null;
+document.querySelectorAll('.mat-btn').forEach(b=>{
+  b.addEventListener('click', ()=> {
+    document.querySelectorAll('.mat-btn').forEach(x=> x.classList.remove('bg-emerald-600','text-white'));
+    b.classList.add('bg-emerald-600','text-white');
+    selectedMaterial = b.dataset.mat;
+  });
+});
+
+// buscar usuario
+const inputBuscar = document.getElementById('buscarUsuario');
+const resultadosEl = document.getElementById('resultadoUsuarios');
+let debounce = null;
+inputBuscar.addEventListener('input', ()=>{
+  clearTimeout(debounce);
+  const q = inputBuscar.value.trim();
+  if (!q) { resultadosEl.classList.add('hidden'); return; }
+  debounce = setTimeout(()=> buscarUsuario(q), 300);
+});
+async function buscarUsuario(q) {
+  resultadosEl.innerHTML = '<div class="p-3 text-gray-500">Buscando…</div>';
+  resultadosEl.classList.remove('hidden');
+  try {
+    const res = await fetch(`${API}/buscar_usuario?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    resultadosEl.innerHTML = '';
+    if (!data.length) resultadosEl.innerHTML = '<div class="p-3 text-gray-500">Sin resultados</div>';
+    data.forEach(u=>{
+      const d = document.createElement('div');
+      d.className = 'p-3 border-b cursor-pointer';
+      d.innerHTML = `<div class="font-medium">${u.nombre}</div><div class="text-xs text-gray-500">Doc: ${u.documento} · ID: ${u.id}</div>`;
+      d.onclick = () => {
+        document.getElementById('usuarioSelect').value = u.id;
+        document.getElementById('usuarioSeleccionado').classList.remove('hidden');
+        document.getElementById('usuarioNombre').innerText = u.nombre;
+        document.getElementById('usuarioDocumento').innerText = 'Documento: ' + u.documento + ' · ID: ' + u.id;
+        resultadosEl.classList.add('hidden');
+        inputBuscar.value = `${u.nombre} — ${u.documento}`;
+      };
+      resultadosEl.appendChild(d);
+    });
+  } catch(e){ resultadosEl.innerHTML = '<div class="p-3 text-red-500">Error</div>'; }
+}
+
+// registro reciclaje
+document.getElementById('registrarBtn').addEventListener('click', async ()=>{
+  const usuarioid = Number(document.getElementById('usuarioSelect').value || currentUserId);
+  const material = selectedMaterial;
+  const cantidad = Number(document.getElementById('cantidad').value);
+  if (!usuarioid) { document.getElementById('formMsg').innerText = 'Selecciona usuario'; return; }
+  if (!material || !cantidad) { document.getElementById('formMsg').innerText = 'Material y cantidad requeridos'; return; }
+  document.getElementById('formMsg').innerText = '';
+  try {
+    const r = await fetch(`${API}/reciclaje`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ usuarioid, material, cantidad })
+    });
+    const data = await r.json();
+    if (!r.ok) { document.getElementById('formMsg').innerText = data.error || 'Error'; return; }
+    // success
+    alert('Registrado! Puntos: ' + (data.points || '0'));
+    // refresh dashboard
+    selectedMaterial = null;
+    document.querySelectorAll('.mat-btn').forEach(x=> x.classList.remove('bg-emerald-600','text-white'));
+    document.getElementById('cantidad').value = '';
+    inputBuscar.value = '';
+    document.getElementById('usuarioSelect').value = '';
+    document.getElementById('usuarioSeleccionado').classList.add('hidden');
+    await Promise.all([loadRanking(), loadReciclaje(), loadUsuarioPoints()]);
+  } catch(e){ document.getElementById('formMsg').innerText = 'Error de conexión'; }
+});
+
+// cargar datos
+let chart = null;
+async function loadRanking() {
+  const r = await fetch(`${API}/ranking`);
+  const data = await r.json();
+  const ol = document.getElementById('listaRanking'); ol.innerHTML = '';
+  data.slice(0,10).forEach(u=>{
+    const li = document.createElement('li');
+    li.className = 'p-3 bg-white rounded-lg shadow-sm flex justify-between';
+    li.innerHTML = `<div><p class="font-medium">${u.nombre}</p><p class="text-xs text-gray-500">ID: ${u.usuarioid}</p></div><div class="font-bold text-emerald-700">${Math.round(u.points)} pts</div>`;
+    ol.appendChild(li);
+  });
+  document.getElementById('totalPoints').innerText = data.reduce((s,x)=>s+(x.points||0),0);
+}
+
+async function loadReciclaje(){
+  const r = await fetch(`${API}/reciclaje`);
+  const rec = await r.json();
+  const ul = document.getElementById('listaRecientes'); ul.innerHTML = '';
+  const agg = {};
+  rec.slice(0,50).forEach(rg=>{
+    const li = document.createElement('li');
+    li.className = 'p-2 bg-white rounded-md flex justify-between';
+    li.innerHTML = `<span>${rg.material} — ${rg.cantidad} kg</span><span class="text-xs text-gray-500">U${rg.usuarioid}</span>`;
+    ul.appendChild(li);
+    agg[rg.material] = (agg[rg.material] || 0) + Number(rg.cantidad || 0);
+  });
+  document.getElementById('countRec').innerText = rec.length;
+  // chart
+  const labels = Object.keys(agg);
+  const values = labels.map(k=>agg[k]);
+  const ctx = document.getElementById('materialChart').getContext('2d');
+  if (chart) { chart.data.labels = labels; chart.data.datasets[0].data = values; chart.update(); }
+  else {
+    chart = new Chart(ctx, { type:'doughnut', data:{ labels, datasets:[{data: values, backgroundColor:['#34D399','#059669','#10B981','#86EFAC','#FDE68A']}]} , options:{plugins:{legend:{position:'bottom'}}, maintainAspectRatio:false }});
+  }
+}
+
+async function loadUsuariosCount(){ const r = await fetch(`${API}/usuarios`); const a = await r.json(); document.getElementById('countUsers').innerText = a.length; }
+
+async function loadUsuarioPoints(){
+  const uid = Number(localStorage.getItem('userId'));
+  const r = await fetch(`${API}/usuario/${uid}`);
+  if (!r.ok) return;
+  const data = await r.json();
+  document.getElementById('userGreeting').innerText = data.nombre;
+  document.getElementById('userPointsTop').innerText = '';
+  document.getElementById('totalPoints').innerText = data.total_points;
+  // if you want show more user details you can
+}
+
+async function init(){
+  await Promise.all([loadRanking(), loadReciclaje(), loadUsuariosCount(), loadUsuarioPoints()]);
+}
+init();
+
+document.getElementById('limpiarBtn').addEventListener('click', ()=>{
+  selectedMaterial = null; document.querySelectorAll('.mat-btn').forEach(x=> x.classList.remove('bg-emerald-600','text-white')); document.getElementById('cantidad').value=''; document.getElementById('usuarioSelect').value=''; document.getElementById('usuarioSeleccionado').classList.add('hidden'); inputBuscar.value='';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoVilla · Iniciar Sesión</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-emerald-50 flex items-center justify-center">
+
+  <div class="w-full max-w-md p-8 bg-white rounded-3xl shadow-lg">
+    <h2 class="text-3xl font-bold text-emerald-800 mb-6 text-center">EcoVilla</h2>
+    <p class="text-center text-gray-500 mb-6">Inicia sesión para continuar</p>
+
+    <form id="formLogin" class="space-y-4">
+      <input type="email" id="email" placeholder="Correo electrónico"
+        class="w-full px-4 py-3 rounded-xl border border-emerald-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+      <input type="password" id="password" placeholder="Contraseña"
+        class="w-full px-4 py-3 rounded-xl border border-emerald-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+      <button type="submit"
+        class="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl shadow hover:bg-emerald-700 transition-all duration-200">Ingresar</button>
+    </form>
+
+    <p id="mensaje" class="text-center text-red-600 mt-4"></p>
+
+    <div class="text-center mt-6">
+      <a href="registrar.html" class="text-emerald-600 font-medium hover:underline">Crear cuenta nueva →</a>
+    </div>
+  </div>
+
+<script>
+const API = "http://127.0.0.1:5000";
+
+document.getElementById("formLogin").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const payload = {
+    email: document.getElementById("email").value.trim(),
+    contraseña: document.getElementById("password").value.trim()
+  };
+  try {
+    const res = await fetch(API + "/login", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Credenciales inválidas');
+
+    localStorage.setItem("userId", data.id);
+    localStorage.setItem("userName", data.nombre);
+    window.location.href = "index.html";
+
+  } catch(err){
+    document.getElementById("mensaje").textContent = err.message;
+  }
+});
+</script>
+</body>
+</html>
