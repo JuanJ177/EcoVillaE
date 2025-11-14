@@ -1,9 +1,8 @@
-# db.py - conexión simple con psycopg2
-import psycopg2
+import pg8000
 import os
 
 def get_connection():
-    return psycopg2.connect(
+    return pg8000.connect(
         host=os.getenv("PGHOST", "localhost"),
         port=int(os.getenv("PGPORT", 5432)),
         database=os.getenv("PGDATABASE", "proyect13"),
